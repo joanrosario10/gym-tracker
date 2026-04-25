@@ -41,7 +41,9 @@ export default async function handler(req: Request): Promise<Response> {
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'nvidia/nemotron-3-super-120b-a12b',
+      // 70B llama is plenty for nutrition extraction and ~9x faster than the
+      // 120B Nemotron we used initially (which over-reasons simple lookups).
+      model: 'meta/llama-3.3-70b-instruct',
       messages: [
         { role: 'system', content: SYSTEM },
         { role: 'user', content: description },
@@ -50,7 +52,6 @@ export default async function handler(req: Request): Promise<Response> {
       top_p: 0.9,
       max_tokens: 200,
       stream: false,
-      chat_template_kwargs: { enable_thinking: false },
     }),
   })
 

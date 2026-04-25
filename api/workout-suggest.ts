@@ -90,7 +90,9 @@ export default async function handler(req: Request): Promise<Response> {
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'nvidia/nemotron-3-super-120b-a12b',
+      // Llama 3.3 70B handles structured extraction well and returns in ~1s
+      // vs ~7s for the 120B Nemotron. No reasoning to eat the token budget.
+      model: 'meta/llama-3.3-70b-instruct',
       messages: [
         { role: 'system', content: SYSTEM },
         { role: 'user', content: goal },
@@ -99,9 +101,6 @@ export default async function handler(req: Request): Promise<Response> {
       top_p: 0.9,
       max_tokens: 1500,
       stream: false,
-      // Nemotron has reasoning enabled by default which eats the token budget
-      // before any JSON gets emitted. We just want a structured response.
-      chat_template_kwargs: { enable_thinking: false },
     }),
   })
 
