@@ -14,7 +14,21 @@ import {
   Shield,
   ChevronRight,
   Camera,
+  Send,
+  Mail,
+  BellOff,
 } from 'lucide-react'
+import type { NotificationChannel } from '../types'
+
+function InstagramIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="2" width="20" height="20" rx="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+    </svg>
+  )
+}
 
 export default function Profile() {
   const { currentUser, userProfile, signOut, refreshProfile, isAdmin } = useAuth()
@@ -76,6 +90,9 @@ export default function Profile() {
   const [displayName, setDisplayName] = useState(userProfile?.display_name || '')
   const [calorieGoal, setCalorieGoal] = useState(String(userProfile?.daily_calorie_goal || 2000))
   const [waterGoal, setWaterGoal] = useState(String(userProfile?.daily_water_goal || 8))
+  const [instagramHandle, setInstagramHandle] = useState(userProfile?.instagram_handle ?? '')
+  const [telegramChatId, setTelegramChatId] = useState(userProfile?.telegram_chat_id ?? '')
+  const [notificationChannel, setNotificationChannel] = useState(userProfile?.notification_channel ?? 'none')
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -91,6 +108,9 @@ export default function Profile() {
           display_name: displayName,
           daily_calorie_goal: Number(calorieGoal) || 2000,
           daily_water_goal: Number(waterGoal) || 8,
+          instagram_handle: instagramHandle.trim().replace(/^@/, '') || null,
+          telegram_chat_id: telegramChatId.trim() || null,
+          notification_channel: notificationChannel,
         })
         .eq('id', currentUser.id)
       if (error) throw error
@@ -225,6 +245,88 @@ export default function Profile() {
           </div>
         </div>
 
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <Send className="w-5 h-5 text-emerald-400" />
+            Reminders
+          </h2>
+          <p className="text-xs text-gray-500 -mt-1">
+            Where should we send your daily nudges? Pick one and fill in the matching handle.
+          </p>
+
+          <div className="grid grid-cols-2 gap-2">
+            <ChannelOption
+              channel="none"
+              active={notificationChannel}
+              onPick={setNotificationChannel}
+              icon={<BellOff className="w-4 h-4" />}
+              label="Off"
+            />
+            <ChannelOption
+              channel="email"
+              active={notificationChannel}
+              onPick={setNotificationChannel}
+              icon={<Mail className="w-4 h-4" />}
+              label="Email"
+            />
+            <ChannelOption
+              channel="telegram"
+              active={notificationChannel}
+              onPick={setNotificationChannel}
+              icon={<Send className="w-4 h-4" />}
+              label="Telegram"
+            />
+            <ChannelOption
+              channel="instagram"
+              active={notificationChannel}
+              onPick={setNotificationChannel}
+              icon={<InstagramIcon className="w-4 h-4" />}
+              label="Instagram"
+            />
+          </div>
+
+          {notificationChannel === 'instagram' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5">Instagram handle</label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">@</span>
+                <input
+                  type="text"
+                  value={instagramHandle}
+                  onChange={(e) => setInstagramHandle(e.target.value)}
+                  className="w-full pl-8 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="your.handle"
+                />
+              </div>
+              <p className="text-[11px] text-amber-400/80 mt-1.5">
+                Heads up: Instagram only allows DMs after you message our bot first. Open the bot from the link the admin shares once setup is live.
+              </p>
+            </div>
+          )}
+
+          {notificationChannel === 'telegram' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5">Telegram chat ID</label>
+              <input
+                type="text"
+                value={telegramChatId}
+                onChange={(e) => setTelegramChatId(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="123456789"
+              />
+              <p className="text-[11px] text-gray-500 mt-1.5">
+                Open <code className="text-gray-400">t.me/userinfobot</code>, type <code className="text-gray-400">/start</code>, copy the numeric ID it replies with.
+              </p>
+            </div>
+          )}
+
+          {notificationChannel === 'email' && (
+            <p className="text-xs text-gray-500">
+              We'll send to <span className="text-gray-300 font-medium">{currentUser?.email}</span>.
+            </p>
+          )}
+        </div>
+
         <button
           type="submit"
           disabled={loading}
@@ -288,6 +390,36 @@ export default function Profile() {
         )}
       </button>
     </div>
+  )
+}
+
+function ChannelOption({
+  channel,
+  active,
+  onPick,
+  icon,
+  label,
+}: {
+  channel: NotificationChannel
+  active: NotificationChannel
+  onPick: (c: NotificationChannel) => void
+  icon: React.ReactNode
+  label: string
+}) {
+  const isActive = active === channel
+  return (
+    <button
+      type="button"
+      onClick={() => onPick(channel)}
+      className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition border ${
+        isActive
+          ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-300'
+          : 'bg-gray-800/40 border-gray-700/60 text-gray-400 hover:bg-gray-800'
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
   )
 }
 

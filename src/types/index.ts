@@ -1,5 +1,7 @@
 export type UserRole = 'user' | 'admin' | 'super_admin'
 
+export type NotificationChannel = 'email' | 'telegram' | 'instagram' | 'none'
+
 export interface UserProfile {
   id: string
   display_name: string
@@ -9,6 +11,9 @@ export interface UserProfile {
   created_at: string
   daily_calorie_goal: number
   daily_water_goal: number
+  instagram_handle: string | null
+  telegram_chat_id: string | null
+  notification_channel: NotificationChannel
 }
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack'
