@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { format } from 'date-fns'
-import { Camera, ArrowLeft, Upload } from 'lucide-react'
+import { Camera, ArrowLeft, Upload, Sparkles } from 'lucide-react'
 import type { MealType } from '../types'
 
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack']
@@ -22,7 +22,36 @@ export default function DietForm() {
   const [photo, setPhoto] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [autoFilling, setAutoFilling] = useState(false)
   const [error, setError] = useState('')
+
+  const handleAutoFill = async () => {
+    const desc = description.trim()
+    if (!desc) {
+      setError('Type what you ate first, then tap Auto-fill.')
+      return
+    }
+    setError('')
+    setAutoFilling(true)
+    try {
+      const res = await fetch('/api/nutrition', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: desc }),
+      })
+      if (!res.ok) throw new Error(`status ${res.status}`)
+      const macros = await res.json()
+      if (typeof macros.calories === 'number') setCalories(String(macros.calories))
+      if (typeof macros.protein  === 'number') setProtein(String(macros.protein))
+      if (typeof macros.carbs    === 'number') setCarbs(String(macros.carbs))
+      if (typeof macros.fats     === 'number') setFats(String(macros.fats))
+    } catch (err) {
+      console.error(err)
+      setError('Auto-fill failed. Enter macros manually.')
+    } finally {
+      setAutoFilling(false)
+    }
+  }
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -138,7 +167,27 @@ export default function DietForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1.5">Description</label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-sm font-medium text-gray-300">Description</label>
+            <button
+              type="button"
+              onClick={handleAutoFill}
+              disabled={autoFilling || !description.trim()}
+              className="flex items-center gap-1.5 text-xs font-medium text-emerald-400 hover:text-emerald-300 disabled:opacity-40 disabled:cursor-not-allowed transition"
+            >
+              {autoFilling ? (
+                <>
+                  <div className="w-3 h-3 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                  Estimating…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Auto-fill macros
+                </>
+              )}
+            </button>
+          </div>
           <input
             type="text"
             value={description}
