@@ -6,6 +6,7 @@ import type { Workout } from '../types'
 import { format, parseISO } from 'date-fns'
 import { Dumbbell, Plus, Clock, Flame, Trash2 } from 'lucide-react'
 import BodyDiagram from '../components/BodyDiagram'
+import Comments from '../components/Comments'
 
 export default function Workouts() {
   const { currentUser } = useAuth()
@@ -75,10 +76,9 @@ export default function Workouts() {
       ) : (
         <div className="space-y-3">
           {workouts.map((w) => (
-            <Link
+            <div
               key={w.id}
-              to={`/workouts/${w.id}`}
-              className="block bg-gray-900 border border-gray-800 rounded-2xl p-4 hover:border-emerald-500/40 transition"
+              className="bg-gray-900 border border-gray-800 rounded-2xl p-4"
             >
               <div className="flex items-start gap-3">
                 <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -105,16 +105,15 @@ export default function Workouts() {
                   </div>
                 </div>
                 <button
-                  onClick={(e) => {
-                    e.preventDefault()
-                    handleDelete(w.id)
-                  }}
+                  onClick={() => handleDelete(w.id)}
                   className="p-1.5 text-gray-500 hover:text-red-400 transition"
+                  aria-label="Delete workout"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
-            </Link>
+              <Comments target={{ type: 'workout', id: w.id }} />
+            </div>
           ))}
         </div>
       )}

@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import type { DietLog as DietLogType } from '../types'
 import { format } from 'date-fns'
 import { Plus, Camera, Trash2, UtensilsCrossed } from 'lucide-react'
+import Comments from '../components/Comments'
 
 export default function DietLog() {
   const { currentUser } = useAuth()
@@ -124,6 +125,7 @@ export default function DietLog() {
                   </div>
                 </div>
               </div>
+              <Comments target={{ type: 'diet', id: log.id }} />
             </div>
           ))}
         </div>
