@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { cacheGet, cacheSet, cacheStale } from '../lib/cache'
 import type { MuscleActivity, MuscleGroup } from '../types'
 
 const FRONT_MUSCLES: { id: MuscleGroup; label: string; d: string }[] = [
@@ -56,19 +57,29 @@ export default function BodyDiagram() {
 
   useEffect(() => {
     if (!currentUser) return
+    const key = `muscle_activity:${currentUser.id}`
+    type Map = Record<MuscleGroup, MuscleActivity>
+
+    // Show stale data instantly so the diagram never blinks back to gray.
+    const stale = cacheStale<Map>(key)
+    if (stale) setActivity(stale)
+
+    // If the cache is fresh (< 60s), don't even hit the network.
+    if (cacheGet<Map>(key, 60_000)) return
+
     supabase
       .from('muscle_activity')
       .select('*')
       .eq('user_id', currentUser.id)
       .then(({ data }) => {
-        const map = {} as Record<MuscleGroup, MuscleActivity>
+        const map = {} as Map
         for (const row of (data ?? []) as MuscleActivity[]) {
-          // keep the highest sessions_7d if a muscle appears more than once
           if (!map[row.muscle] || row.sessions_7d > map[row.muscle].sessions_7d) {
             map[row.muscle] = row
           }
         }
         setActivity(map)
+        cacheSet(key, map)
       })
   }, [currentUser])
 

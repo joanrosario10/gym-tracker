@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { cacheGet, cacheSet, cacheStale } from '../lib/cache'
 import type { DietLog, HydrationLog } from '../types'
 import { format } from 'date-fns'
 import { Plus, Droplets, UtensilsCrossed, Trophy, TrendingUp, Camera, Dumbbell } from 'lucide-react'
@@ -18,32 +19,39 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!currentUser) return
+    const key = `dashboard:${currentUser.id}:${today}`
+    type Snapshot = {
+      todayDiet: DietLog[]
+      todayHydration: HydrationLog | null
+      recent: DietLog[]
+    }
+
+    const stale = cacheStale<Snapshot>(key)
+    if (stale) {
+      setTodayDietLogs(stale.todayDiet)
+      setTodayHydration(stale.todayHydration)
+      setRecentLogs(stale.recent)
+      setLoading(false)
+    }
+    if (cacheGet<Snapshot>(key, 30_000)) return
 
     const fetchData = async () => {
       try {
         const [dietToday, hydrationToday, dietRecent] = await Promise.all([
-          supabase
-            .from('diet_logs')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .eq('log_date', today),
-          supabase
-            .from('hydration_logs')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .eq('log_date', today)
-            .maybeSingle(),
-          supabase
-            .from('diet_logs')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .order('created_at', { ascending: false })
-            .limit(5),
+          supabase.from('diet_logs').select('*').eq('user_id', currentUser.id).eq('log_date', today),
+          supabase.from('hydration_logs').select('*').eq('user_id', currentUser.id).eq('log_date', today).maybeSingle(),
+          supabase.from('diet_logs').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(5),
         ])
 
-        if (dietToday.data) setTodayDietLogs(dietToday.data as DietLog[])
-        if (hydrationToday.data) setTodayHydration(hydrationToday.data as HydrationLog)
-        if (dietRecent.data) setRecentLogs(dietRecent.data as DietLog[])
+        const snap: Snapshot = {
+          todayDiet: (dietToday.data ?? []) as DietLog[],
+          todayHydration: (hydrationToday.data ?? null) as HydrationLog | null,
+          recent: (dietRecent.data ?? []) as DietLog[],
+        }
+        setTodayDietLogs(snap.todayDiet)
+        setTodayHydration(snap.todayHydration)
+        setRecentLogs(snap.recent)
+        cacheSet(key, snap)
       } catch (error) {
         console.error('Error fetching dashboard data:', error)
       } finally {

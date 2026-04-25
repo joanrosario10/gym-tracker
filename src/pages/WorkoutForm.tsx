@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import type { Exercise } from '../types'
 import { format } from 'date-fns'
-import { ArrowLeft, Plus, Trash2, Dumbbell, Save } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Dumbbell, Save, Sparkles } from 'lucide-react'
 
 interface DraftSet {
   exercise_id: string
@@ -33,7 +33,58 @@ export default function WorkoutForm() {
   const [drafts, setDrafts] = useState<DraftSet[]>([])
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [loading, setLoading] = useState(false)
+  const [aiGoal, setAiGoal] = useState('')
+  const [aiBusy, setAiBusy] = useState(false)
   const [error, setError] = useState('')
+
+  const askAi = async () => {
+    const goal = aiGoal.trim()
+    if (!goal) return
+    setError('')
+    setAiBusy(true)
+    try {
+      const res = await fetch('/api/workout-suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goal }),
+      })
+      if (!res.ok) throw new Error(`status ${res.status}`)
+      const plan: {
+        name: string
+        exercises: Array<{
+          name: string
+          sets: number | null
+          reps: number | null
+          weight_kg: number
+          duration_seconds: number | null
+        }>
+      } = await res.json()
+
+      const matched: DraftSet[] = []
+      for (const e of plan.exercises) {
+        const ex = exercises.find((x) => x.name === e.name)
+        if (!ex) continue
+        matched.push({
+          exercise_id: ex.id,
+          sets: e.sets != null ? String(e.sets) : '3',
+          reps: e.reps != null ? String(e.reps) : '',
+          weight_kg: e.weight_kg ? String(e.weight_kg) : '',
+          duration_seconds: e.duration_seconds != null ? String(e.duration_seconds) : '',
+        })
+      }
+      if (matched.length === 0) {
+        setError('AI returned no usable exercises. Try rephrasing.')
+        return
+      }
+      if (!name) setName(plan.name)
+      setDrafts(matched)
+    } catch (err) {
+      console.error(err)
+      setError('AI suggest failed. Try a preset or add exercises manually.')
+    } finally {
+      setAiBusy(false)
+    }
+  }
 
   useEffect(() => {
     supabase
@@ -187,6 +238,42 @@ export default function WorkoutForm() {
                 min="0"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              Describe a workout (AI)
+            </label>
+            <div className="flex gap-2">
+              <input
+                value={aiGoal}
+                onChange={(e) => setAiGoal(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    askAi()
+                  }
+                }}
+                disabled={aiBusy}
+                placeholder='e.g. "30 min full body, no equipment"'
+                className="flex-1 px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              <button
+                type="button"
+                onClick={askAi}
+                disabled={aiBusy || !aiGoal.trim()}
+                className="px-4 py-2.5 bg-emerald-500/15 hover:bg-emerald-500/25 disabled:opacity-40 disabled:cursor-not-allowed text-emerald-300 font-medium rounded-xl text-sm transition flex items-center gap-1.5"
+              >
+                {aiBusy ? (
+                  <div className="w-4 h-4 border-2 border-emerald-300 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )}
+                {aiBusy ? 'Thinking…' : 'Suggest'}
+              </button>
+            </div>
+            <p className="text-[11px] text-gray-500 mt-1.5">Picks exercises from your catalog and prefills sets/reps. Edit before saving.</p>
           </div>
 
           <div>

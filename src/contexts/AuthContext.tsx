@@ -48,21 +48,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // onAuthStateChange fires INITIAL_SESSION immediately on subscribe,
     // so we don't need a separate getSession() call (which doubles the profile fetch).
+    let lastUserId: string | null = null
+
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       setSession(newSession)
+      const userId = newSession?.user?.id ?? null
       setCurrentUser(newSession?.user ?? null)
-      if (newSession?.user) {
-        const profile = await fetchProfile(newSession.user.id)
+
+      // Only refetch the profile when the user identity actually changes.
+      // TOKEN_REFRESHED / USER_UPDATED keep the same user, so re-fetching
+      // their profile every hour adds latency for no reason.
+      if (userId && userId !== lastUserId) {
+        const profile = await fetchProfile(userId)
         setUserProfile(profile)
-      } else {
+      } else if (!userId) {
         setUserProfile(null)
       }
-      setLoading(false)
+      lastUserId = userId
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        setLoading(false)
+      }
     })
 
-    return () => subscription.unsubscribe()
+    // When the tab regains focus, proactively touch the session so any
+    // expired token is refreshed *before* the user navigates and feels lag.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        supabase.auth.getSession()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+
+    return () => {
+      subscription.unsubscribe()
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [])
 
   const signIn = async (email: string, password: string) => {
