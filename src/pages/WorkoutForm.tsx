@@ -241,39 +241,42 @@ export default function WorkoutForm() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-1.5">
+            <label className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-              Describe a workout (AI)
+              Plan or log with AI
             </label>
-            <div className="flex gap-2">
-              <input
+            <div className="flex gap-2 items-start">
+              <textarea
                 value={aiGoal}
                 onChange={(e) => setAiGoal(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                     e.preventDefault()
                     askAi()
                   }
                 }}
                 disabled={aiBusy}
-                placeholder='e.g. "30 min full body, no equipment"'
-                className="flex-1 px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                rows={3}
+                placeholder={'Plan: "30 min full body, no equipment"\nOr describe what you did: "chest day — bench 90kg 3x12, incline 50kg 3x12, ..."'}
+                className="flex-1 px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
               />
               <button
                 type="button"
                 onClick={askAi}
                 disabled={aiBusy || !aiGoal.trim()}
-                className="px-4 py-2.5 bg-emerald-500/15 hover:bg-emerald-500/25 disabled:opacity-40 disabled:cursor-not-allowed text-emerald-300 font-medium rounded-xl text-sm transition flex items-center gap-1.5"
+                className="px-4 py-2.5 bg-emerald-500/15 hover:bg-emerald-500/25 disabled:opacity-40 disabled:cursor-not-allowed text-emerald-300 font-medium rounded-xl text-sm transition flex items-center gap-1.5 self-stretch"
               >
                 {aiBusy ? (
                   <div className="w-4 h-4 border-2 border-emerald-300 border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <Sparkles className="w-4 h-4" />
                 )}
-                {aiBusy ? 'Thinking…' : 'Suggest'}
+                {aiBusy ? '…' : 'Go'}
               </button>
             </div>
-            <p className="text-[11px] text-gray-500 mt-1.5">Picks exercises from your catalog and prefills sets/reps. Edit before saving.</p>
+            <p className="text-[11px] text-gray-500 mt-1.5">
+              Plan a session, or paste what you just did and we'll fill in the sets, reps, and weights. Edit before saving.
+            </p>
           </div>
 
           <div>

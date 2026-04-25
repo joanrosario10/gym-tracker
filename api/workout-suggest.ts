@@ -1,25 +1,54 @@
 export const config = { runtime: 'edge' }
 
-const SYSTEM = `You are a personal-trainer assistant for a gym tracker app.
+const SYSTEM = `You are a workout assistant for a gym tracker app.
 
-Given a short goal description ("chest day", "30-min cardio", "leg-focused full body"), return ONLY valid JSON in this exact shape:
+The user will either (A) describe a goal for a workout they want to do
+("chest day", "30 min cardio") and you plan one, OR (B) describe in
+detail a workout they already completed with weights/sets/reps and you
+extract it into structured form. Either way return ONLY valid JSON in
+this shape:
+
 {
   "name": "<short workout name, max 40 chars>",
   "exercises": [
     {
-      "name": "<exercise name from the allowed list, exactly>",
-      "sets": <int 1-6>,
-      "reps": <int 1-30, or null for time-based>,
+      "name": "<exercise name from the allowed list, EXACT spelling>",
+      "sets": <int 1-10>,
+      "reps": <int 1-50, or null for time-based>,
       "weight_kg": <number 0-300, 0 for bodyweight>,
       "duration_seconds": <int seconds, or null if reps-based>
     }
   ]
 }
 
-Choose exercises ONLY from this allowed list (case-sensitive, exact spelling):
+Allowed exercise names (case-sensitive):
 "Bench Press","Incline Dumbbell Press","Push-up","Pull-up","Barbell Row","Deadlift","Squat","Lunges","Romanian Deadlift","Hip Thrust","Calf Raise","Overhead Press","Lateral Raise","Bicep Curl","Tricep Pushdown","Plank","Russian Twist","Treadmill Run","Cycling","Rowing Machine","Jump Rope","Yoga Flow"
 
-Pick 3-6 exercises that fit the goal. For time-based exercises (Plank, Treadmill Run, Cycling, Rowing Machine, Jump Rope, Yoga Flow), set reps=null and provide duration_seconds. For all others, set duration_seconds=null and provide sets+reps. Output JSON only, no prose.`
+Mapping rules for parse mode (B) — map freeform names to the closest allowed entry:
+- "military press" / "shoulder press" → "Overhead Press"
+- "incline press" / "incline bench" → "Incline Dumbbell Press"
+- "decline bench" → "Bench Press"
+- "skull crusher" / "tricep extension" → "Tricep Pushdown"
+- "fly" / "chest fly" / "cable fly" → keep mapping to "Incline Dumbbell Press" if unsure
+- "lateral raise" / "side raise" / "reverse fly" → "Lateral Raise"
+- "lat pulldown" / "pulldown" → "Pull-up"
+- "leg press" / "front squat" → "Squat"
+- Drop any exercise that has no reasonable mapping.
+
+Typo / number tolerance:
+- "reputation" / "reps" / "rep" all mean reps.
+- Patterns like "312" or "612" usually mean "3x12" or "6x12" — split into sets×reps.
+- "kg" / "KG" / "kilos" all mean kilograms.
+
+Mode A planning: pick 3-6 exercises matching the goal, leave weight_kg=0
+unless obviously implied. Mode B parse: include every exercise the user
+named, with the weights/sets/reps they specified.
+
+Time-based exercises (Plank, Treadmill Run, Cycling, Rowing Machine,
+Jump Rope, Yoga Flow): set reps=null, provide duration_seconds. Other
+exercises: set duration_seconds=null, provide sets and reps.
+
+Output JSON only, no prose, no markdown fences.`
 
 const ALLOWED = new Set([
   'Bench Press', 'Incline Dumbbell Press', 'Push-up', 'Pull-up', 'Barbell Row',
@@ -49,7 +78,7 @@ export default async function handler(req: Request): Promise<Response> {
 
   const goal = body.goal?.trim()
   if (!goal || goal.length < 2) return json({ error: 'goal_required' }, 400)
-  if (goal.length > 200) return json({ error: 'goal_too_long' }, 400)
+  if (goal.length > 2000) return json({ error: 'goal_too_long' }, 400)
 
   const apiKey = process.env.NVIDIA_API_KEY
   if (!apiKey) return json({ error: 'server_not_configured' }, 500)
@@ -66,10 +95,13 @@ export default async function handler(req: Request): Promise<Response> {
         { role: 'system', content: SYSTEM },
         { role: 'user', content: goal },
       ],
-      temperature: 0.4,
+      temperature: 0.3,
       top_p: 0.9,
-      max_tokens: 600,
+      max_tokens: 1500,
       stream: false,
+      // Nemotron has reasoning enabled by default which eats the token budget
+      // before any JSON gets emitted. We just want a structured response.
+      chat_template_kwargs: { enable_thinking: false },
     }),
   })
 

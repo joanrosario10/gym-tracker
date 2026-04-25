@@ -50,6 +50,7 @@ export default async function handler(req: Request): Promise<Response> {
       top_p: 0.9,
       max_tokens: 200,
       stream: false,
+      chat_template_kwargs: { enable_thinking: false },
     }),
   })
 
