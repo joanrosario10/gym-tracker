@@ -74,7 +74,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { display_name: displayName } },
+      options: {
+        data: { display_name: displayName },
+        // Send users back to the origin they signed up from after clicking the
+        // email confirmation link. Without this, Supabase uses Site URL — which
+        // is "localhost:3000" in fresh projects and breaks confirmations from prod.
+        emailRedirectTo: `${window.location.origin}/login`,
+      },
     })
     if (error) throw error
 
